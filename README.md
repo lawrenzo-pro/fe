@@ -2,7 +2,7 @@
 A simple, half baked nodejs backend
 
 ## Prerequisites
-install nodejs and ensure npm works
+install nodejs and ensure npm works  
 install mysql or mariadb as a database
 
 ## Usage
