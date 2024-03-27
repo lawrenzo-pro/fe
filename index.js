@@ -1,135 +1,88 @@
-const express = require('express')
-const mysql = require("mysql")
-const dotenv = require('dotenv')
+const { PrismaClient } = require('@prisma/client')
 const bcrypt = require("bcryptjs")
+const prisma = new PrismaClient()
+const express = require("express");
 const session = require('express-session');
-
-let app = express();
-dotenv.config({ path: './.env'})
-
-// other imports
 const path = require("path")
+const app = express();
 const publicDir = path.join(__dirname, './public')
 app.use(express.static(publicDir))
 app.use(express.urlencoded({extended: 'false'}))
 app.use(express.json())
-app.use(session({
-    secret : 'nunua42tfvgcvv.shjhdgyggyyd.alklssjh56sfftd',
-    resave : true,
-    saveUninitialized : true
-}));
-
-const db = mysql.createConnection({
-    host:'localhost',
-    user:'lawrence',
-    password:'password',
-    database:'logindb'
-})
-
-db.connect((error) => {
-    if(error) {
-        console.log(error)
-    } else {
-        console.log("MySQL connected!")
-    }
-})
+app.use(
+    session({
+      secret: 'xAtZ4Ol4W9hV6lVg04JsNlwsFvxTbA9WI6jptSiy82yS8UyAMVEBk0MeQeKqi9BJN8u1RisI1LdBordarVY6GMF7AfKE6hnwTN6WrLQmgt9XsuDiKVdwGN3r8zZzly0o', // Change this to a secure random string
+      resave: false,
+      saveUninitialized: false,
+    })
+);
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+  });
+let host = "127.0.0.1"
+let port = 3000;
 app.set('view engine', 'hbs')
-//GET REQUESTS
-app.get("/", (req, res) => {
-    if(! req.session.loggedin){
-        return res.render('index', {
-            message: 'Please Log in'
-        })
-    }
-    res.render("index")
-})
-app.get("/register", (req, res) => {
-    res.render("register")
-})
-app.get("/login", (req, res) => {
-    if(req.session.loggedin){
-        return res.render('index', {
-            message: 'No need,you are already logged In!'
-        })
-    }
-    res.render("login")
-})
-app.get("/logout",(req,res) =>{
-    req.session.destroy()
-    return res.render('index', {
-        message: 'Successfully logged out'
+app.get('/', (req,res) =>{
+    res.render('index',{
+        message:"Server says hi!"
     })
 })
-//POST REQUESTS
-app.post("/auth/register", (req, res) => {    
-    const { name, email, password, password_confirm } = req.body
-
-    db.query('SELECT email FROM users WHERE email = ?', [email], async (error, result) => {
-        if(error){
-            console.log(error)
+app.get('/user/:username',async (req,res)=>{
+    let {username} = req.params
+    let testData = await prisma.user.findUnique({
+        include: { 
+            profile: true,
+        },
+        where: {
+            username:username
         }
-
-        if( result.length > 0 ) {
-            return res.render('register', {
-                message: 'This email is already in use'
-            })
-        }else if(password !== password_confirm) {
-            return res.render('register', {
-                message: 'Passwords no match'
-            })
-        }
-
-        let hashedPassword = await bcrypt.hash(password, 8)
-
-        //console.log(hashedPassword)
-       
-        db.query('INSERT INTO users SET?', {name: name, email: email, password: hashedPassword}, (err, result) => {
-            if(error) {
-                console.log(error)
-            } else {
-                req.session.loggedin = true
-                return res.render('index', {
-                    message: 'User registered!'
-                })
-            }
-        })        
     })
+    res.json(testData)
 })
-app.post('/auth/login', (req,res) =>{
-    const {email, password} = req.body
-
-    db.query('SELECT * FROM users WHERE email = ?', [email], async (error, result) => {
-        if(error){
-            console.log(error)
-        }
-        if(result.length > 0){
-            let hashedPassword = await bcrypt.hash(password, 8)
-            let passInDb = result[0].password
-            bcrypt.compare(password, passInDb).then( (authorised) => {
-                if(authorised){
-                    //res.redirect('/')
-                    req.session.loggedin = true;
-				    req.session.username = email;
-                    return res.render('index', {
-                        message: 'Welcome,my friend'
-                    })
-                }
-                else{
-                    return res.render('login', {
-                        message: 'Incorrect credentials'
-                    })
-                }
-             });
-        }
-        else{
-            return res.render('register', {
-                message: `you don't exist in the system `
-            })
-        }
-     })
+app.post('/auth/login',(req,res)=>{
+    
 })
-
-//Finally
-app.listen(process.env.PORT, ()=> {
-    console.log(`server started on port ${process.env.PORT}`)
+app.post('/auth/signup',(req,res)=>{
+    
+})
+app.get('/community:community_name', async (req,res) =>{
+    let community = await prisma.community.findUnique({
+        include: {
+            members:true
+        },
+        where:{
+            community_name: req.params
+        }
+    })
+    return res.json(community)
+})
+app.post('/trade', async (req,res) =>{
+    trade = req.query
+    let trader = await prisma.trader.findUnique({
+        include: {
+            trader: true
+        },
+        where: {
+            trader_id: req.query.trader_id
+        }
+    })
+    if(trader.trader.cash < req.query.amount){
+        res.sendJson({
+            status:"unable to execute trade"
+        })
+    }
+    let trade = await prisma.trade.create({
+        data:{
+            trade_type:req.query.trade_type,
+            value: req.query.value,
+            community_id: req.query.community_id,
+            trader_id:req.query.trader_id
+        }
+    })
+    res.status(200)
+})
+app.listen(port,host,()=>{
+    console.log(`Server started on ${host}:${port}`);
 })

@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User{
+   userId   String   @id @default(uuid())
+   username String   @unique
+   email    String   @unique
+   password String
+   profile UserProfile?
+}
+model UserProfile{
+  id Int @id @default(autoincrement())
+  first_name String
+  second_name String
+  cash Float
+  cloaks Int
+  user_id String @unique
+  user User @relation(fields: [user_id], references: [userId])
+  communities Community[]
+  trader Trader?
+}
+model Community{
+  community_id String @id @default(uuid())
+  community_name String @unique
+  value_in_cloak Float
+  value_in_cash Float
+  owner_id String @unique
+  members UserProfile[]
+  trades Trade[]
+  trader Trader @relation(fields: [owner_id],references: [trader_id])
+}
+model Trade{
+  trade_id String @id @default(uuid())
+  trade_type String
+  value Float
+  community_id String
+  community Community @relation(fields: [community_id],references: [community_id])
+  trade_by String
+  trader Trader @relation(fields: [trade_by],references: [trader_id])
+}
+model Trader{ 
+   trader_id String @id
+   trader UserProfile @relation(fields: [trader_id],references: [user_id])
+   community Community?
+   trades Trade[]
+}
